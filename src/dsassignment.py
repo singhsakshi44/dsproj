@@ -4,20 +4,18 @@ import pandas as pd
 import json
 
 
-column_mapping = {
-    "finalscore": ["completescore", "totalscore", "uniquenessscore"]
-}
 
-revcolumn_mapping = {}
+def generate_column_mapping(col_mapping):
+    revcolumn_mapping = {}
 
-for standard, variations in column_mapping.items():
-    for col in variations:
-        revcolumn_mapping[col.lower().strip()] = standard
+    for standard, variations in column_mapping.items():
+        for col in variations:
+            revcolumn_mapping[col.lower().strip()] = standard
 
-master_df = pd.DataFrame()
- 
+    return revcolumn_mapping
 
-def standardrize_columns(tdf):
+
+def standardrize_columns(tdf,revcolumn_mapping):
     new_columns = []
         
     for col in tdf.columns:
@@ -33,40 +31,31 @@ def standardrize_columns(tdf):
             new_columns.append(clean_col)  # keep as is
         
     tdf.columns = new_columns
-    # print(new_columns)
     return tdf
 
-def process_folder(folderpath):
+def process_folder(folderpath,rev_column_mapping):
     db_result = {}
 
     for item in os.listdir(folderpath):
         item_path = os.path.join(folderpath, item)
         
         if os.path.isdir(item_path):
-            res = process_db_folder(item_path)
-            
-            print(f"{item}   {res}")
-            # print("final")
-            # print(res["Scoring"])
+            res = process_db_folder(item_path,rev_column_mapping)
 
             db_result[item] = res.get("Scoring","")
 
     return db_result
 
 
-def process_db_folder(folderpath:str,basepath:str=None):
+def process_db_folder(folderpath:str,rev_column_mapping):
     result_row = {}
-
-    # store base root path
-    basepath = folderpath if basepath == None else basepath
-    # print(f"{basepath}   {folderpath}")
-
+    
     for item in os.listdir(folderpath):
         item_path = os.path.join(folderpath, item)
 
         # if folder go one more level down
         if os.path.isdir(item_path):
-            subfolder_result = process_db_folder(item_path,basepath)
+            subfolder_result = process_db_folder(item_path,rev_column_mapping)
             
             # sub folfder will have blank result if not valid candidate to read
             if subfolder_result:
@@ -76,8 +65,11 @@ def process_db_folder(folderpath:str,basepath:str=None):
         elif item.endswith(".csv") and "Scoring" in os.path.normpath(folderpath).split(os.sep):
             try:
                 tdf = pd.read_csv(item_path)
-                tdf = standardrize_columns(tdf)
-                score = float(tdf["finalscore"].mean())
+                tdf = standardrize_columns(tdf,rev_column_mapping)
+                if "finalscore".lower() in tdf.columns.str.lower():
+                    score = float(tdf["finalscore"].mean())
+                else:
+                    score = 0
                 result_row[item] = round(score, 4)
 
             except Exception as e:
@@ -85,27 +77,68 @@ def process_db_folder(folderpath:str,basepath:str=None):
 
     return result_row
 
-def newmain(root_path,outputfile,summaryfile):
-    final_output = process_folder(root_path)
+def get_depth(d):
+    if not isinstance(d, dict) or not d:
+        return 0
+    return 1 + max(get_depth(v) for v in d.values())
 
+def generate_summary(output_data):
+    result = {}
+    rows = []
+    Grouptype = "Scores"
+
+    # convert into desired flat structure
+        #    dbname Grouptype              module     score
+        # 0  analysis    Scores    accuracy scoring  81.91270
+        # 1  analysis    Scores        completeness  90.16665
+        # 2   archive    Scores        completeness  97.56510
+        # 3   archive    Scores  uniqueness scoring  99.99210
+   
+    if get_depth(output_data) >= 3:
+        for dbname, modules in output_data.items():
+            for module, tables in modules.items():
+                for tbl, score in tables.items():
+                    rows.append([dbname, Grouptype, module, tbl, score])
+
+        df = pd.DataFrame(rows, columns=["dbname", "Grouptype", "module", "table", "score"])
+
+        # group by dbname and module
+        df_grouped = df.groupby(["dbname", "Grouptype","module"])["score"].mean().reset_index()
+        df_grouped["score"] = df_grouped["score"].round(4)
+        
+        if "dbname".lower() in df_grouped.columns.str.lower():
+            for _, row in df_grouped.iterrows():
+                db = row["dbname"]
+                group = row["Grouptype"]
+                module = row["module"]
+                score = row["score"]
+
+                result.setdefault(db, {}).setdefault(group, {})[module] = score
+
+    return result
+
+def main_block(root_path,outputfile,summaryfile,column_mapping):
+
+    rev_column_mapping = generate_column_mapping(column_mapping)
+
+    final_output = process_folder(root_path,rev_column_mapping)
+    # print dict to pretty json
     with open(outputfile, "w") as f:
         json.dump(final_output, f, indent=4)  # 'indent' makes it human-readable
+   
+    summary = generate_summary(final_output)
+    with open(summaryfile, "w") as f:
+        json.dump(summary, f, indent=4)
+   
 
-    print(final_output)
 
-    rows = []
-    for dbname, modules in final_output.items():
-        for module, tables in modules.items():
-            for tbl, score in tables.items():
-                rows.append([dbname, module, tbl, score])
+# Set variables for program execution like path and file names
+column_mapping = {
+    "finalscore": ["completescore", "totalscore", "uniquenessscore"]
+}
 
-    df = pd.DataFrame(rows, columns=["dbname", "module", "table", "score"])
+rootfolderpath = "C:/WorkSakshi/Python/dump/belden"
+summaryfilename = "C:/WorkSakshi/Python/data/dumpOutput/db_score.json"
+consolidatedfilename = "C:/WorkSakshi/Python/data/dumpOutput/table_score.json"
 
-    print(df)
-
-# Set path and file names
-rootfolderpath = "C:/WorkSakshi/Python/data/1"
-summaryfilename = "C:/WorkSakshi/Python/data/dumpOutput/summ.csv"
-consolidatedfilename = "C:/WorkSakshi/Python/data/dumpOutput/AllData.csv"
-# mainblk(rootfolderpath,consolidatedfilename,summaryfilename)
-newmain(rootfolderpath,consolidatedfilename,summaryfilename)
+main_block(rootfolderpath,consolidatedfilename,summaryfilename,column_mapping)
