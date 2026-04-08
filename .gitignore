@@ -1,0 +1,92 @@
+# =========================
+# Python cache & bytecode
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+
+# =========================
+# Virtual environments
+# =========================
+env/
+venv/
+.venv/
+ENV/
+vdsenv/
+.vdsenv/
+env.bak/
+venv.bak/
+vdsenv.bak/
+
+
+# =========================
+# Data files (customize!)
+# =========================
+# Ignore large/raw datasets
+data/
+datasets/
+*.csv
+*.tsv
+*.xlsx
+*.parquet
+
+# BUT allow small sample data if needed
+!data/sample/
+!data/sample/*.csv
+
+# =========================
+# Logs & temp files
+# =========================
+*.log
+*.tmp
+*.temp
+
+# =========================
+# OS files
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# IDE / Editor settings
+# =========================
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# =========================
+# Python packaging
+# =========================
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# =========================
+# Testing & coverage
+# =========================
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+
+# =========================
+# Environment variables
+# =========================
+.env
+.env.*
+
+# =========================
+# Model files (ML projects)
+# =========================
+*.pkl
+*.joblib
+*.h5
+*.model
+
+# =========================
+# Misc
+# =========================
+*.bak
+*.sqlite3
