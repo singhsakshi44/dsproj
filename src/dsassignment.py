@@ -8,7 +8,7 @@ import json
 def generate_column_mapping(col_mapping):
     revcolumn_mapping = {}
 
-    for standard, variations in column_mapping.items():
+    for standard, variations in col_mapping.items():
         for col in variations:
             revcolumn_mapping[col.lower().strip()] = standard
 
@@ -66,8 +66,12 @@ def process_db_folder(folderpath:str,rev_column_mapping):
             try:
                 tdf = pd.read_csv(item_path)
                 tdf = standardrize_columns(tdf,rev_column_mapping)
+
                 if "finalscore".lower() in tdf.columns.str.lower():
-                    score = float(tdf["finalscore"].mean())
+                    tdf["finalscore"] = pd.to_numeric(tdf["finalscore"], errors="coerce")
+                    score = tdf["finalscore"].mean()
+                    score = 0 if pd.isna(score) else score
+                    # score = float(tdf["finalscore"].mean())
                 else:
                     score = 0
                 result_row[item] = round(score, 4)
@@ -115,6 +119,9 @@ def generate_summary(output_data):
 
                 result.setdefault(db, {}).setdefault(group, {})[module] = score
 
+    else:
+        print("Unexpected structure, skipping summary")
+
     return result
 
 def main_block(root_path,outputfile,summaryfile,column_mapping):
@@ -124,7 +131,7 @@ def main_block(root_path,outputfile,summaryfile,column_mapping):
     final_output = process_folder(root_path,rev_column_mapping)
     # print dict to pretty json
     with open(outputfile, "w") as f:
-        json.dump(final_output, f, indent=4)  # 'indent' makes it human-readable
+        json.dump(final_output, f, indent=4) 
    
     summary = generate_summary(final_output)
     with open(summaryfile, "w") as f:
