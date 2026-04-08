@@ -1,0 +1,19 @@
+{
+  "paths": {
+    "input": "C:/WorkSakshi/Python/data/belden",
+    "output_table": "C:/WorkSakshi/Python/data/dumpOutput/table_score.json",
+    "output_dbsummary": "C:/WorkSakshi/Python/data/dumpOutput/db_score.json"
+  },
+  "processing": {
+    "target_column": "finalscore",
+    "scoring_folder": "scoring",
+    "db_file_grouping":"scores"
+  },
+  "column_mapping": {
+    "finalscore": [
+      "completescore",
+      "totalscore",
+      "uniquenessscore"
+    ]
+  }
+}
