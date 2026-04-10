@@ -8,20 +8,16 @@ def load_config(base_dir,path="config/config.json",srcdir="src"):
         config = json.load(f)
     return config
 
+def normalise_column(col_name):
+    new_col_name = col_name.lower().strip().replace('_', '').replace(' ', '')
+    return new_col_name
+
 
 def generate_column_mapping(col_mapping):
     revcolumn_mapping = {}
 
     for standard, variations in col_mapping.items():
         for col in variations:
-            revcolumn_mapping[col.lower().strip()] = standard
+            revcolumn_mapping[normalise_column(col)] = standard
 
     return revcolumn_mapping
-
-def check_folder_hierarchy(folder_path,given_folder):
-    
-    parent = os.path.basename(os.path.dirname(folder_path))
-    
-    grandparent = os.path.basename(os.path.dirname(os.path.dirname(folder_path)))
-
-    return parent.lower() == given_folder.lower(), grandparent

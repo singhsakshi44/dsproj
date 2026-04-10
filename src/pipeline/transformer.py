@@ -1,10 +1,12 @@
 import pandas as pd
 
+from util.helper import normalise_column
+
 def standardrize_columns(tdf,revcolumn_mapping):
     new_columns = []
         
     for col in tdf.columns:
-        clean_col = col.lower().strip().replace('_', '').replace(' ', '')
+        clean_col = normalise_column(col)
 
         new_name = ""
         if clean_col in revcolumn_mapping:

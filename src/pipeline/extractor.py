@@ -1,37 +1,41 @@
 import os
 import pandas as pd
-from pipeline.transformer import *
+
 from util.helper import *
+from util.logger import log_message
+
+from pipeline.transformer import *
 
 def process_folder(config_info):
     file_result = {}
 
+    log_message("Folder processing start")
+
     column_mapping = config_info["column_mapping"]
     folderpath = config_info["paths"]["input"]
     folder_in_scope = config_info["processing"]["scoring_folder"].strip().lower()
+    agg_target_column = config_info["processing"]["target_column"]
 
     rev_column_mapping = generate_column_mapping(column_mapping)
     row_data = []
     start_reading = False
     parent_folder = '' 
 
-    process_db_folder(folderpath,rev_column_mapping,row_data,folder_in_scope,start_reading,parent_folder)
-    # print(row_data)
+    process_db_folder(folderpath,row_data,folder_in_scope,start_reading,parent_folder)
 
-    file_result = read_file(row_data,rev_column_mapping)
+    file_result = read_file(row_data,rev_column_mapping,agg_target_column)
 
+    log_message("Folder processing end")
     return file_result
 
-def process_db_folder(folderpath:str,rev_column_mapping,row_data,folder_in_scope,start_reading,parent_folder):
+def process_db_folder(folderpath:str,row_data,folder_in_scope,start_reading,parent_folder):
     result_row = {}
     current_folder = ''
 
     for item in os.listdir(folderpath):
         item_path = os.path.join(folderpath, item)
 
-        # print(f"base path {item_path}  {os.path.basename(item_path)}")
-        # print(os.path.dirname(item_path))
-        # print(os.path.basename(os.path.dirname(item_path)))
+        log_message(f"Scanning folder {item_path}")
 
         # if folder go one more level down
         if os.path.isdir(item_path):
@@ -39,7 +43,6 @@ def process_db_folder(folderpath:str,rev_column_mapping,row_data,folder_in_scope
 
             # if current folder is scoping then we need to start scanning nested folders and files
             if current_folder.lower() == folder_in_scope.lower():
-                # result_row = {}
                 start_reading = True
                 parent_folder = os.path.basename(os.path.dirname(item_path))
                         
@@ -50,7 +53,7 @@ def process_db_folder(folderpath:str,rev_column_mapping,row_data,folder_in_scope
                 start_reading = False 
                 parent_folder = ''                
 
-            subfolder_result = process_db_folder(item_path,rev_column_mapping,row_data,folder_in_scope,start_reading,parent_folder)
+            subfolder_result = process_db_folder(item_path,row_data,folder_in_scope,start_reading,parent_folder)
             
             # sub folfder will have blank result if not valid candidate to read
             if subfolder_result:
@@ -62,15 +65,16 @@ def process_db_folder(folderpath:str,rev_column_mapping,row_data,folder_in_scope
             row_data.append([parent_folder, tfile_folder, item, item_path])
             result_row[item] = 0
 
+        log_message(f"Scanning done folder {item_path}")
+
     return result_row
 
-def read_file(file_info,rev_column_mapping):
+def read_file(file_info,rev_column_mapping,agg_target_column):
     result_row = []
 
     for item in file_info:
         item_path = item[3]
-        
-        # print(f"{item_path} {os.path.isfile(item_path)}")
+        log_message(f"Reading File {item_path}")
 
         # If not valid path then go to next iteration
         if not os.path.isfile(item_path):
@@ -79,13 +83,17 @@ def read_file(file_info,rev_column_mapping):
         tdf = pd.read_csv(item_path)
         tdf = standardrize_columns(tdf,rev_column_mapping)
 
-        if "finalscore".lower() in tdf.columns.str.lower():
-            tdf["finalscore"] = pd.to_numeric(tdf["finalscore"], errors="coerce")
-            score = float(tdf["finalscore"].mean())
-            score = 0 if pd.isna(score) else score
-            
+        if agg_target_column.lower() in tdf.columns.str.lower():
+            try:
+                tdf[agg_target_column] = pd.to_numeric(tdf[agg_target_column], errors="raise")
+                score = tdf["finalscore"].mean()
+                score = 0 if pd.isna(score) else float(score)    
+            except Exception as e:
+                log_message(f"File {item_path} Conversion error {e}","error")                
         else:
             score = 0
         result_row.append([item[0], item[1], item[2],round(score, 4)])
-    
+
+        log_message(f"End File {item_path}")
+
     return result_row
